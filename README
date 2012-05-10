@@ -1,0 +1,32 @@
+Sphinx Search real-time indexing in Ruby On Rails code sample, tested with Sphinx 2.0.2-beta (r3019).
+
+Create your sphinx config file manually, which should look similar to config/development.sphinx.conf.
+
+Add the following line into your models class that you wish to be indexed in real-time:
+
+include SphinxRealtime
+
+and edit the hash:
+
+SphinxIndexes = {} 
+
+in app/helpers/sphinx_realtime.rb to define the attributes that you wish to index in which sphinx tables, this should match the fields you declared in config/development.sphinx.conf. In the example the Article model needs to respond to "author_name". Then I do a trick with the mysql2 gem to do part of the hard work for us. Your models will be indexed on after_create, after_save and after_destroy.
+
+The file config/initializers/sphinx_search.rb adds a 'search' method to ActiveRecord::Base which works like this:
+
+@articles = Article.search :query => "dogs cats", :field_weights => "title=10, body=5, author_name=2"
+
+which will generate a SphinxQL query like:
+
+query = "SELECT * FROM #{sphinx_table} WHERE match('#{query}')"
+query += " OPTION field_weights=(#{options[:field_weights]})" if options[:field_weights]
+
+Which is sent to your sphinx server. Ip and port have to be set in sphinx_connect.rb (hardcoded sorry...).
+
+When sphinx returns the results all the models associated are preloaded all at once to avoid a single SELECT statement by result during the view generation for performance reasons. Also sphinx score is inserted into the models in an attribute called "weight".
+
+You also needs to set:
+
+$sphinx_client = nil
+
+in your application.rb.
